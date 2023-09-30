@@ -1,13 +1,15 @@
 import os
 import datetime
 import queue
+from collections import deque
 import threading
+import time
 
 
 class ILog:
 
     def __init__(self, log_directory="logs", log_file_extension=".log"):
-        self.log_queue = queue.Queue()
+        self.log_queue = deque()
 
         self.stop_event = threading.Event()
         self._daemon = None
@@ -15,16 +17,17 @@ class ILog:
         self.start()
         self.log_file_extension = log_file_extension
         self.log_dir = os.path.join(os.getcwd(), log_directory)
+        self._ensure_log_dir()
 
     def write(self, message):
         if self.stop_event.is_set():
             return
-        self.log_queue.put(message)
+        self.log_queue.append(message)
 
     def stop(self, wait_for_completion):
         self.stop_event.set()
         if not wait_for_completion:
-            self.log_queue.queue.clear()
+            self.log_queue.clear()
         self._daemon.join()
 
     def start(self):
@@ -35,13 +38,14 @@ class ILog:
     def _write(self):
         while not self.stop_event.is_set():
             try:
-                message = self.log_queue.get(block=True, timeout=1)
+                message = self.log_queue.popleft()
+                # print(message)
                 self._ensure_log_dir()
                 # a+ creates new file if it doesn't exist
                 with open(self._get_log_file_path(), "a+") as log_file:
                     log_file.write(message)
-                self.log_queue.task_done()
-            except queue.Empty:
+            except IndexError:
+                time.sleep(1)
                 pass
             except Exception as e:
                 print(e)
