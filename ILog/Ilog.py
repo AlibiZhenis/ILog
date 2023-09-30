@@ -10,7 +10,6 @@ class ILog:
 
     def __init__(self, log_directory="logs", log_file_extension=".log"):
         self.log_queue = deque()
-
         self.stop_event = threading.Event()
         self._daemon = None
 
@@ -33,21 +32,20 @@ class ILog:
 
     def start(self):
         self.stop_event.clear()
-        self._daemon = threading.Thread(target=self._write, args=(self.log_queue,), daemon=True)
+        self._daemon = threading.Thread(target=self._write)
         self._daemon.start()
 
-    def _write(self, queue):
+    def _write(self):
         while not self.stop_event.is_set():
             try:
-                message = queue.popleft()
-                # print(message)
+                message = self.log_queue.popleft()
                 self._ensure_log_dir()
                 # a+ creates new file if it doesn't exist
-                with open(self._get_log_file_path(), "a") as log_file:
+                with open(self._get_log_file_path(), "a+") as log_file:
                     log_file.write(message)
-            except IndexError:
-                time.sleep(1)
-                pass
+            except IndexError as e:
+                time.sleep(3)
+                print(e)
             except Exception as e:
                 print(e)
 
