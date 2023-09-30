@@ -18,6 +18,7 @@ class ILog:
         self.log_file_extension = log_file_extension
         self.log_dir = os.path.join(os.getcwd(), log_directory)
         self._ensure_log_dir()
+        open(self._get_log_file_path(), 'w').close()
 
     def write(self, message):
         if self.stop_event.is_set():
@@ -32,17 +33,17 @@ class ILog:
 
     def start(self):
         self.stop_event.clear()
-        self._daemon = threading.Thread(target=self._write)
+        self._daemon = threading.Thread(target=self._write, args=(self.log_queue,), daemon=True)
         self._daemon.start()
 
-    def _write(self):
+    def _write(self, queue):
         while not self.stop_event.is_set():
             try:
-                message = self.log_queue.popleft()
+                message = queue.popleft()
                 # print(message)
                 self._ensure_log_dir()
                 # a+ creates new file if it doesn't exist
-                with open(self._get_log_file_path(), "a+") as log_file:
+                with open(self._get_log_file_path(), "a") as log_file:
                     log_file.write(message)
             except IndexError:
                 time.sleep(1)
